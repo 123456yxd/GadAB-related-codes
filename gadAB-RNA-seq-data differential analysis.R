@@ -31,13 +31,7 @@ normalized_counts <- counts(dds, normalized=TRUE)
 #normalized_counts_mad <- apply(normalized_counts, 1, mad) 
 #normalized_counts <- normalized_counts[order(normalized_counts_mad, decreasing=T), ]
 #write.table(normalized_counts, file="E:/数据分析/ZZ5-LHB-mix-20260613/Data.normalized.xls",quote=F,sep="\t", row.names=T, col.names=T)
-'''
-## log转换后的结果并输出
-rld <- rlog(dds, blind=FALSE)
-rlogMat <- assay(rld)
-rlogMat <- rlogMat[order(normalized_counts_mad, decreasing=T), ]
-write.table(rlogMat, file="E:/DESeq2.normalized.rlog.xls",quote=F, sep="\t", row.names=T, col.names=T)
-'''
+
 ######样本相关性热图绘制及PCA分析
 hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)
 pearson_cor <- as.matrix(cor(normalized_counts, method="pearson"))
@@ -92,27 +86,12 @@ ggplot(res, aes(x = res$log2FoldChange, y = -log10(res$padj), colour=Sig)) +
   theme(plot.title = element_text(hjust = 0.5), 
         legend.position="right", 
         legend.title = element_blank() 
-  )# +  
-#  geom_text_repel(aes(label=geneList), fontface="bold",
-#                  color="black", box.padding=unit(0.35, "lines"),
-#                  point.padding=unit(5, "lines"),segment.color ="black",max.overlaps=Inf)
-#dev.off()
+  )
 
-#logCounts <- log2(res$baseMean+1)
-#logFC <- res$log2FoldChange
-#FDR <- res$padj
-#plot(logFC, -1*log10(FDR), col=ifelse(FDR<=0.01, "red", "black"),
-#     xlab="logFC", ylab="-log10 Padj", main="Differentially expressed gene",
-#     pch=1)
-
-###choose 1
 res_de_up_sorted <- res_de_up %>% arrange(padj)
 res_de_dw_sorted <- res_de_dw %>% arrange(padj)
 res_de_up_top20_id <- as.vector(head(res_de_up_sorted$ID,20))
 res_de_dw_top20_id <- as.vector(head(res_de_dw_sorted$ID,20))
-#choose 2
-#res_de_up_top20_id <- as.vector(head(res_de_up$ID,20))
-#res_de_dw_top20_id <- as.vector(head(res_de_dw$ID,20))
 
 res_de_top20 <- c(res_de_up_top20_id, res_de_dw_top20_id)   
 res_de_top20_expr <- normalized_counts[rownames(normalized_counts) %in% res_de_top20,]
@@ -122,29 +101,7 @@ library(pheatmap)
 
 
 library(clusterProfiler)
-gene2ko <- download_KEGG(organism = "eco", keggType = "KEGG")$KEGG2Gene
-colnames(gene2ko) <- c("KO", "gene_id")
-# 2. 获取KO-eco通路映射
-ko2path <- download_KEGG(organism = "eco", keggType = "KEGG")$Pathway2Gene
-colnames(ko2path) <- c("pathway_id", "KO")
-# 3. 三表合并：gene-KO-eco通路
-gene_ko_path <- merge(gene2ko, ko2path, by = "KO")
-# 4. 导出csv本地保存
-write.csv(gene_ko_path, "Ecoli_gene_KO_ecoPath.csv", row.names = F)
-
-
-
-
-
-
-
-
-up_genes <- rownames(res_de_up)
 Tn2<-read.table("E:/数据分析/ZZ7-LHB-mix-20260701/转录组/KEGG GO/up-kegg-forcluster.txt")
-
-Tn2<-read.table("E:/数据分析/ZZ7-LHB-mix-20260701/转录组/KEGG GO/down-kegg-forcluster.txt")
-#symbols <-bitr(Tn5, fromType = "ALIAS", toType = "ENTREZID",OrgDb = 'org.EcK12.eg.db')
-
 Tn5<-Tn2[,1]
 kegg <- enrichKEGG(
   gene = Tn5,# up_genes
@@ -159,11 +116,8 @@ dotplot(kegg, x = "FoldEnrichment", color = "pvalue") +
 write.csv(kegg,"E:/数据分析/ZZ7-LHB-mix-20260701/转录组/KEGG GO/up-KEGG-GC-v2.csv")
 
 Tn2<-read.table("E:/数据分析/ZZ7-LHB-mix-20260701/转录组/KEGG GO/up-go-forcluster.txt")
-
-Tn2<-read.table("E:/数据分析/ZZ7-LHB-mix-20260701/转录组/KEGG GO/down-go-forcluster.txt")
 Tn5<-Tn2[,1]
 library(org.EcK12.eg.db)
-#up_genes_entrez <- bitr(up_genes, fromType = "SYMBOL",toType = "ENTREZID", OrgDb = org.EcK12.eg.db)
 ego <- enrichGO(
   gene          = Tn5,
   keyType = "ENTREZID",
@@ -174,8 +128,6 @@ ego <- enrichGO(
   qvalueCutoff  = 0.95,
   readable      = TRUE)
 dotplot(ego)#,showCategory = 50)
-#barplot(go_up, showCategory =8, split = "ONTOLOGY") +
-#  facet_grid(ONTOLOGY ~ ., scales ="free")
 write.csv(ego,"E:/数据分析/ZZ7-LHB-mix-20260701/转录组/KEGG GO/up-GO-gc-v2.csv")#GO-result-ALL.csv")
 
 
@@ -186,10 +138,8 @@ target_pathways <- c("quorum sensing","aspartate family amino acid catabolic pro
 target_pathways <- c("monoatomic cation transmembrane transporter activity","active monoatomic ion transmembrane transporter activity","inorganic molecular entity transmembrane transporter activity","monoatomic ion transmembrane transporter activity","inorganic cation transmembrane transporter activity")
 
 # 2. 提取富集结果数据框
-res <- kegg@result  ####!!!!!!!!!!!!!!!!!!!!!!!xiugai
-
-res <- ego@result  ####!!!!!!!!!!!!!!!!!!!!!!!xiugai
-
+res <- kegg@result 
+res <- ego@result 
 # 3. 筛选出目标通路（如果某个通路不在结果中，则会被忽略）
 sub_res <- res[res$Description %in% target_pathways, ]
 
@@ -232,10 +182,6 @@ p4 <- ggplot(sub_res, aes(x = FoldEnrichment, y = reorder(Description, FoldEnric
 print(p1+p2+p3+p4)
 
 
-
-
-
-
 go_data<-read.table("E:/数据分析/ZZ7-LHB-mix-20260701/转录组/up-KEGG-GC-v2.txt")#,# header = FALSE,
        # sep = "\t", stringsAsFactors = FALSE, fill = TRUE, quote = " ")
 go_data<-read.csv2("E:/数据分析/ZZ7-LHB-mix-20260701/转录组/up-KEGG-GC-v2.csv",# header = FALSE,
@@ -258,8 +204,6 @@ ggplot(go_data, aes(x = FoldEnrich,
     low = "#B22222",    # 显著（p小）→ 深红
     high = "#1E3A8A"    # 不显著（p大）→ 深蓝
   ) +
-  # 如果您喜欢示例图中的红-黄-蓝渐变，可改为：
-  # scale_color_distiller(palette = "RdYlBu", direction = -1) +
   labs(
     x = "Fold Enrichment",
     y = "GO Term",
